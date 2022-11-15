@@ -1,27 +1,36 @@
-mod diffie_hellman {
+pub mod diffie_hellman {
     use mod_exp::mod_exp;
     use rand::{thread_rng, Rng};
 
     const P: u64 = 12941;
     const G: u64 = 724;
 
+    /// Generate a secret to be used for a diffie hellman key exchange
     pub fn gen_secret() -> u64 {
         let mut rng = thread_rng();
         rng.gen_range(1..P)
     }
 
+    /// Perform the first part of a diffie hellman key exchange, returning a partial key
     pub fn diffie_hellman_partial(secret: u64) -> u64 {
         mod_exp(G, secret, P)
     }
 
+    /// Complete a diffie hellman key exchange using a partial key, return the final key
     pub fn diffie_hellman(partial: u64, secret: u64) -> u64 {
         mod_exp(partial, secret, P)
     }
 }
 
 pub mod text_manipulation {
+    /// A type to represent a set of chunks
+    ///
+    /// Each chunk is a 64 bit unsigned value, this is the size of value that DES can encrypt
     pub type Chunks = Vec<u64>;
 
+    /// Convert text into chunks by ascii
+    ///
+    /// Splits string into character bytes, and batches these into u64 chunks
     pub fn text_to_chunks(text: String) -> Chunks {
         let bytes = text.as_bytes();
 
@@ -46,6 +55,9 @@ pub mod text_manipulation {
         chunks
     }
 
+    /// Converts chunks into the original text
+    ///
+    /// Splits each u64 chunk into 8 bytes as characters
     pub fn chunks_to_text(chunks: Chunks) -> String {
         let mut letters: Vec<u8> = Vec::new();
 
@@ -78,6 +90,7 @@ pub mod networking {
         Ok(())
     }
 
+    /// Recieve chunks from a given TCPStream
     pub fn recv_chunks(stream: &mut TcpStream) -> std::io::Result<Chunks> {
         let mut chunk_buffer: [u8; 8] = [0;8];
         let mut chunks = Vec::new();
