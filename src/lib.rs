@@ -11,7 +11,7 @@ mod diffie_hellman {
     }
 
     pub fn diffie_hellman_partial(secret: u64) -> u64 {
-        mod_exp(G,secret,P)
+        mod_exp(G, secret, P)
     }
 
     pub fn diffie_hellman(partial: u64, secret: u64) -> u64 {
@@ -19,54 +19,85 @@ mod diffie_hellman {
     }
 }
 
-fn text_to_chunks(text: String) -> Vec<u64> {
-    let bytes = text.as_bytes();
+pub mod text_manipulation {
+    pub type Chunks = Vec<u64>;
 
-    let mut chunks = Vec::new();
+    pub fn text_to_chunks(text: String) -> Chunks {
+        let bytes = text.as_bytes();
 
-    let mut buffer: u64 = 0;
-    let mut shift = 0;
+        let mut chunks = Vec::new();
 
-    for b in bytes {
-        buffer += (*b as u64) << shift;
-        shift += 8;
-        if shift >= 64 {
-            chunks.push(buffer);
-            buffer = 0;
-            shift = 0;
+        let mut buffer: u64 = 0;
+        let mut shift = 0;
+
+        for b in bytes {
+            buffer += (*b as u64) << shift;
+            shift += 8;
+            if shift >= 64 {
+                chunks.push(buffer);
+                buffer = 0;
+                shift = 0;
+            }
+        }
+        if buffer > 0 {
+            chunks.push(buffer)
+        }
+
+        chunks
+    }
+
+    pub fn chunks_to_text(chunks: Chunks) -> String {
+        let mut letters: Vec<u8> = Vec::new();
+
+        for mut chunk in chunks {
+            while chunk != 0 {
+                letters.push((chunk % (u8::MAX as u64 + 1)) as u8);
+                chunk >>= 8;
+            }
+        }
+
+        if let Ok(string) = String::from_utf8(letters) {
+            string
+        } else {
+            panic!("conversion error")
         }
     }
-    if buffer > 0 {
-        chunks.push(buffer)
-    }
-
-    chunks
 }
 
-fn chunks_to_text(chunks: Vec<u64>) -> String {
-    let mut letters: Vec<u8> = Vec::new();
+pub mod networking {
+    use crate::text_manipulation::*;
+    use std::io::prelude::*;
+    use std::net::TcpStream;
 
-    for mut chunk in chunks {
-        while chunk != 0 {
-            letters.push((chunk % (u8::MAX as u64 + 1)) as u8);
-            chunk >>= 8;
+    /// Send chunks to the given TCPStream.
+    pub fn send_chunks(stream: &mut TcpStream, chunks: Chunks) -> std::io::Result<()> {
+        for chunk in chunks {
+            let chunk_bytes = chunk.to_be_bytes();
+            stream.write_all(&chunk_bytes)?;
         }
+        Ok(())
     }
 
-    println!("{:?}", letters);
+    pub fn recv_chunks(stream: &mut TcpStream) -> std::io::Result<Chunks> {
+        let mut chunk_buffer: [u8; 8] = [0;8];
+        let mut chunks = Vec::new();
 
-    if let Ok(string) = String::from_utf8(letters) {
-        string
-    }
-    else {
-        panic!("conversion error")
+        loop {
+            if stream.read(&mut chunk_buffer)? == 0 {
+                break
+            }
+            chunks.push(u64::from_be_bytes(chunk_buffer));
+        }
+
+        Ok(chunks)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::*;
     use crate::diffie_hellman::*;
+    use crate::text_manipulation::*;
+    use crate::*;
     #[test]
     fn diffie_hellman_test() {
         let secret_a = gen_secret();
@@ -85,20 +116,18 @@ mod tests {
     fn chunk_text_test() {
         let text = String::from("hello world");
 
-        let correct: Vec<u64> = vec![8031924123371070824,6581362];
+        let correct: Vec<u64> = vec![8031924123371070824, 6581362];
         assert_eq!(text_to_chunks(text), correct);
     }
-
 
     #[test]
     #[should_panic]
     fn chunk_text_fail_test() {
         let text = String::from("hello world");
 
-        let correct: Vec<u64> = vec![803192412337100824,658136];
+        let correct: Vec<u64> = vec![803192412337100824, 658136];
         assert_eq!(text_to_chunks(text), correct);
     }
-
 
     #[test]
     fn chunk_text_and_back_test() {
@@ -106,6 +135,8 @@ mod tests {
 
         let chunks = text_to_chunks(text.clone());
 
-        assert_eq!(text, chunks_to_text(chunks));
+        println!("decoded: {}", chunks_to_text(chunks));
+        panic!();
+        // assert_eq!(text, chunks_to_text(chunks));
     }
 }
