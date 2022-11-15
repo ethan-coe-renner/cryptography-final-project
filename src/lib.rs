@@ -132,11 +132,7 @@ mod tests {
     #[test]
     fn chunk_text_and_back_test() {
         let text = String::from("hello world");
-
         let chunks = text_to_chunks(text.clone());
-
-        println!("decoded: {}", chunks_to_text(chunks));
-        panic!();
-        // assert_eq!(text, chunks_to_text(chunks));
+        assert_eq!(text, chunks_to_text(chunks));
     }
 }
