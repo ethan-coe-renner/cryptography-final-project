@@ -79,10 +79,10 @@ pub mod text_manipulation {
 pub mod networking {
     use crate::text_manipulation::*;
     use std::io::prelude::*;
-    use std::net::TcpStream;
+    use std::net::{TcpStream, TcpListener};
 
     /// Send chunks to the given TCPStream.
-    pub fn send_chunks(stream: &mut TcpStream, chunks: Chunks) -> std::io::Result<()> {
+    fn send_chunks(stream: &mut TcpStream, chunks: Chunks) -> std::io::Result<()> {
         for chunk in chunks {
             let chunk_bytes = chunk.to_be_bytes();
             stream.write_all(&chunk_bytes)?;
@@ -91,19 +91,57 @@ pub mod networking {
     }
 
     /// Recieve chunks from a given TCPStream
-    pub fn recv_chunks(stream: &mut TcpStream) -> std::io::Result<Chunks> {
-        let mut chunk_buffer: [u8; 8] = [0;8];
+    fn recv_chunks(stream: &mut TcpStream) -> std::io::Result<Chunks> {
+        let mut chunk_buffer: [u8; 8] = [0; 8];
         let mut chunks = Vec::new();
 
         loop {
             if stream.read(&mut chunk_buffer)? == 0 {
-                break
+                break;
             }
             chunks.push(u64::from_be_bytes(chunk_buffer));
         }
 
         Ok(chunks)
     }
+
+    pub fn server() -> std::io::Result<()> {
+        let bind = "0.0.0.0:1812";
+        println!("recieving");
+
+
+        let listener = TcpListener::bind(bind)?;
+        let mut chunks: Chunks = Vec::new();
+
+        for stream in listener.incoming() {
+            println!("connection established");
+            chunks = recv_chunks(&mut stream?)?;
+            if !chunks.is_empty() {
+                break
+            }
+        }
+
+        let recvd = chunks_to_text(chunks);
+
+        println!("we recieved {recvd}");
+	Ok(())
+	
+    }
+
+    pub fn client(bind: String) -> std::io::Result<()> {
+
+        println!("Sending");
+
+        let text_to_send = String::from("Hello World!");
+        let chunks_to_send = text_to_chunks(text_to_send);
+
+        let mut stream = TcpStream::connect(bind)?;
+
+        send_chunks(&mut stream, chunks_to_send)?;
+        println!("Send complete");
+
+	Ok(())
+}
 }
 
 #[cfg(test)]
