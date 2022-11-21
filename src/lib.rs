@@ -136,7 +136,7 @@ pub mod networking {
     pub fn client(bind: String) -> std::io::Result<()> {
         // let mut stream = TcpStream::connect(bind)?;
         loop {
-            let mut stream = TcpStream::connect(bind)?;
+            let mut stream = TcpStream::connect(&bind)?;
 	    recv_message(&mut stream)?;
 
 	    if !send_message(&mut stream)? {
