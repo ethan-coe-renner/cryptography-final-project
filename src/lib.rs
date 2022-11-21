@@ -121,7 +121,7 @@ pub mod networking {
 
 	let mut first = true;
         for stream in listener.incoming() {
-	    println!("connected to client");
+	    println!("connected to client, {first}");
 	    let mut stream_handle = stream?;
 	    if first {
 		send_message(&mut stream_handle)?;
@@ -140,6 +140,7 @@ pub mod networking {
 	let mut first = true;
         loop {
 	    let mut stream = TcpStream::connect(&bind)?;
+	    
 	    if first {
 		recv_message(&mut stream)?;
 		first = false;
@@ -150,6 +151,7 @@ pub mod networking {
 		}
 		first = true;
 	    }
+	    drop(stream);
         }
 
         Ok(())
