@@ -86,9 +86,10 @@ pub mod networking {
     /// Send chunks to the given TCPStream.
     fn send_chunks(stream: &mut TcpStream, chunks: Chunks) -> std::io::Result<()> {
 
-	let header = chunks.len().to_be_bytes();
-	println!("{:?}", header);
-	stream.write(&header)?;
+	// used to send to python because python sucks
+	// let header = chunks.len().to_be_bytes();
+	// println!("{:?}", header);
+	// stream.write(&header)?;
 	for chunk in chunks {
 	    let chunk_bytes = chunk.to_be_bytes();
 	    stream.write_all(&chunk_bytes)?;
