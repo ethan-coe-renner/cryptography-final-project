@@ -125,21 +125,18 @@ pub mod networking {
         let listener = TcpListener::bind(bind)?;
 
         for stream in listener.incoming() {
+	    println!("connected to client");
 	    let mut stream_handle = stream?;
-            loop {
-                if !send_message(&mut stream_handle)? {
-                    break;
-                }
-                recv_message(&mut stream_handle)?;
-            }
+	    send_message(&mut stream_handle)?;
+	    recv_message(&mut stream_handle)?;
         }
         Ok(())
     }
 
     pub fn client(bind: String) -> std::io::Result<()> {
         // let mut stream = TcpStream::connect(bind)?;
-        let mut stream = TcpStream::connect("10.15.208.225:1812")?;
         loop {
+            let mut stream = TcpStream::connect(bind)?;
 	    recv_message(&mut stream)?;
 
 	    if !send_message(&mut stream)? {
@@ -153,9 +150,9 @@ pub mod networking {
     fn recv_message(stream: &mut TcpStream) -> std::io::Result<()> {
 	println!("waiting to recieve chunks");
         let chunks = recv_chunks(stream)?;
-	println!("recieved chunks");
+	println!("recieved {} chunks", chunks.len());
 
-        println!("{}", chunks_to_text(chunks));
+        println!("recieved: {}", chunks_to_text(chunks));
         Ok(())
     }
 
