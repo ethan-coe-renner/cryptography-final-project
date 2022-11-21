@@ -78,10 +78,8 @@ pub mod text_manipulation {
 
 pub mod networking {
     use crate::text_manipulation::*;
-    use std::io::prelude::*;
+    use std::{io::prelude::*,io};
     use std::net::{TcpListener, TcpStream};
-
-    use std::io;
 
     /// Send chunks to the given TCPStream.
     fn send_chunks(stream: &mut TcpStream, chunks: Chunks) -> std::io::Result<()> {
