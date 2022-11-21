@@ -3,31 +3,28 @@ use std::io;
 use final_project::networking::*;
 
 fn main() -> std::io::Result<()> {
-    println!("Enter R to recieve and S to send");
+    println!("Enter S to be server and C to be client");
     let mut input = String::new();
     io::stdin()
         .read_line(&mut input)
         .expect("Failed to read input");
 
-    if input == "R\n" {
-	server()?;
-    }
-    else if input == "S\n" {
+    if input == "S\n" {
+        host()?;
+    } else if input == "C\n" {
         let mut bind = String::new();
 
-	io::stdin()
+        io::stdin()
             .read_line(&mut bind)
             .expect("Failed to read input");
 
-	// trim trailing newline
-	bind.pop(); 
+        // trim trailing newline
+        bind.pop();
 
-	client(bind)?;
-    }
-    else {
+        client(bind)?;
+    } else {
         println!("Unknown input")
     }
 
     Ok(())
-
 }

@@ -79,15 +79,21 @@ pub mod text_manipulation {
 pub mod networking {
     use crate::text_manipulation::*;
     use std::io::prelude::*;
-    use std::net::{TcpStream, TcpListener};
+    use std::net::{TcpListener, TcpStream};
+
+    use std::io;
 
     /// Send chunks to the given TCPStream.
     fn send_chunks(stream: &mut TcpStream, chunks: Chunks) -> std::io::Result<()> {
-        for chunk in chunks {
-            let chunk_bytes = chunk.to_be_bytes();
-            stream.write_all(&chunk_bytes)?;
-        }
-        Ok(())
+
+	let header = chunks.len().to_be_bytes();
+	println!("{:?}", header);
+	stream.write(&header)?;
+	for chunk in chunks {
+	    let chunk_bytes = chunk.to_be_bytes();
+	    stream.write_all(&chunk_bytes)?;
+	}
+	Ok(())
     }
 
     /// Recieve chunks from a given TCPStream
@@ -96,71 +102,90 @@ pub mod networking {
         let mut chunks = Vec::new();
 
         loop {
-            if stream.read(&mut chunk_buffer)? == 0 {
+	    println!("waiting to recieve");
+	    if stream.read(&mut chunk_buffer)? == 0 {
                 break;
-            }
+	    }
             chunks.push(u64::from_be_bytes(chunk_buffer));
         }
 
         Ok(chunks)
     }
 
-    pub fn server() -> std::io::Result<()> {
+    pub fn host() -> std::io::Result<()> {
         let bind = "0.0.0.0:1812";
         println!("recieving");
 
-
         let listener = TcpListener::bind(bind)?;
-        let mut chunks: Chunks = Vec::new();
 
         for stream in listener.incoming() {
-            println!("connection established");
-            chunks = recv_chunks(&mut stream?)?;
-            if !chunks.is_empty() {
-                break
+	    let mut stream_handle = stream?;
+            loop {
+                if !send_message(&mut stream_handle)? {
+                    break;
+                }
+                recv_message(&mut stream_handle)?;
             }
         }
-
-        let recvd = chunks_to_text(chunks);
-
-        println!("we recieved {recvd}");
-	Ok(())
-	
+        Ok(())
     }
 
     pub fn client(bind: String) -> std::io::Result<()> {
-
-        println!("Sending");
-
-        let text_to_send = String::from("Hello World!");
-        let chunks_to_send = text_to_chunks(text_to_send);
-
         let mut stream = TcpStream::connect(bind)?;
+        loop {
+	    recv_message(&mut stream)?;
 
-        send_chunks(&mut stream, chunks_to_send)?;
-        println!("Send complete");
+	    if !send_message(&mut stream)? {
+                break;
+	    }
+        }
 
-	Ok(())
-}
+        Ok(())
+    }
+
+    fn recv_message(stream: &mut TcpStream) -> std::io::Result<()> {
+	println!("waiting to recieve chunks");
+        let chunks = recv_chunks(stream)?;
+	println!("recieved chunks");
+
+        println!("{}", chunks_to_text(chunks));
+        Ok(())
+    }
+
+    fn send_message(stream: &mut TcpStream) -> std::io::Result<bool> {
+	print!("> ");
+	io::stdout().flush().ok().expect("Could not flush stdout");
+        let mut message = String::new();
+        io::stdin()
+            .read_line(&mut message)
+            .expect("Failed to read input");
+
+        if message == "quit" {
+	    return Ok(false);
+        }
+
+        send_chunks(stream, text_to_chunks(message))?;
+        Ok(true)
+    }
+
 }
 
 #[cfg(test)]
 mod tests {
     use crate::diffie_hellman::*;
     use crate::text_manipulation::*;
-    use crate::*;
     #[test]
     fn diffie_hellman_test() {
         let secret_a = gen_secret();
         let secret_b = gen_secret();
 
-        let A = diffie_hellman_partial(secret_a);
-        let B = diffie_hellman_partial(secret_b);
+        let part_key_a = diffie_hellman_partial(secret_a);
+        let part_key_b = diffie_hellman_partial(secret_b);
 
-        let Ka = diffie_hellman(B, secret_a);
-        let Kb = diffie_hellman(A, secret_b);
+        let key_a = diffie_hellman(part_key_b, secret_a);
+        let key_b = diffie_hellman(part_key_a, secret_b);
 
-        assert_eq!(Ka, Kb);
+        assert_eq!(key_a, key_b);
     }
 
     #[test]
