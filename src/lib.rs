@@ -20,6 +20,21 @@ pub mod diffie_hellman {
     pub fn diffie_hellman(partial: u64, secret: u64) -> u64 {
         mod_exp(partial, secret, P)
     }
+
+
+    #[test]
+    fn diffie_hellman_test() {
+        let secret_a = gen_secret();
+        let secret_b = gen_secret();
+
+        let part_key_a = diffie_hellman_partial(secret_a);
+        let part_key_b = diffie_hellman_partial(secret_b);
+
+        let key_a = diffie_hellman(part_key_b, secret_a);
+        let key_b = diffie_hellman(part_key_a, secret_b);
+
+        assert_eq!(key_a, key_b);
+    }
 }
 
 pub mod crypto {
@@ -48,6 +63,27 @@ pub mod crypto {
 	}
 	chunks
     }
+
+    pub fn encrypt_chunks(chunks: Chunks, cipher: &Des) -> Chunks{
+	let mut blocks = chunks_to_blocks(chunks);
+	for block in &mut blocks {
+	    encrypt_block(block, cipher)
+	};
+
+	blocks_to_chunks(blocks)
+	
+    }
+
+    pub fn decrypt_chunks(chunks: Chunks, cipher: &Des) -> Chunks{
+	let mut blocks = chunks_to_blocks(chunks);
+	for block in &mut blocks {
+	    decrypt_block(block, cipher)
+	};
+
+	blocks_to_chunks(blocks)
+	    
+    }
+
 
     /// Encrypt a block in place
     fn encrypt_block(plaintext: &mut Block<Des>, cipher: &Des) {
@@ -141,6 +177,13 @@ pub mod networking {
     use crate::text_manipulation::*;
     use std::net::{TcpListener, TcpStream};
     use std::{io, io::prelude::*};
+    use crate::diffie_hellman::*;
+    use crate::crypto::*;
+    use des::Des;
+
+    use des::cipher::{
+        generic_array::GenericArray, BlockCipher, BlockDecrypt, BlockEncrypt, KeyInit,
+    };
 
     /// Send chunks to the given TCPStream.
     fn send_chunks(stream: &mut TcpStream, chunks: Chunks) -> std::io::Result<()> {
@@ -174,50 +217,92 @@ pub mod networking {
         let bind = "0.0.0.0:1812";
 
         let listener = TcpListener::bind(bind)?;
+	let mut key: u64;
 
-        let mut first = true;
+	// do the diffie hellman exchange
+	{
+	    let mut stream = listener.incoming().next().unwrap()?;
+
+	    let a = gen_secret();
+
+	    let dhp = diffie_hellman_partial(a);
+
+	    let mydhp = dhp.to_be_bytes();
+
+	    // send dhp to client
+	    stream.write_all(&mydhp)?;
+
+
+	    drop(stream);
+
+	    let mut stream = listener.incoming().next().unwrap()?;
+
+	    let mut theirdhp: [u8; 8] = [0;8];
+
+	    stream.read(&mut theirdhp)?;
+
+	    key = diffie_hellman(u64::from_be_bytes(theirdhp), a);
+	}
+
+	println!("key of host is {key}");
+	let cipher: Des = Des::new(&GenericArray::from(key.to_be_bytes()));
+
         for stream in listener.incoming() {
             let mut stream_handle = stream?;
-            if first {
-                send_message(&mut stream_handle)?;
-                first = false
-            } else {
-                recv_message(&mut stream_handle)?;
-                first = true;
-            }
+	    recv_message(&mut stream_handle, &cipher)?;
         }
         Ok(())
     }
 
     pub fn client(bind: String) -> std::io::Result<()> {
-        // let mut stream = TcpStream::connect(bind)?;
-        let mut first = true;
-        loop {
+	let key: u64;
+	// diffie hellman exchange
+	{
             let mut stream = TcpStream::connect(&bind)?;
+	    let mut theirdhp: [u8; 8] = [0; 8];
+	    stream.read(&mut theirdhp)?;
+	    drop(stream);
 
-            if first {
-                recv_message(&mut stream)?;
-                first = false;
-            } else {
-                if !send_message(&mut stream)? {
-                    break;
-                }
-                first = true;
-            }
-            drop(stream);
-        }
+	    let b = gen_secret();
+	    let mypartial = diffie_hellman_partial(b);
 
-        Ok(())
+            let mut stream = TcpStream::connect(&bind)?;
+	    stream.write_all(&mypartial.to_be_bytes())?;
+
+	    drop(stream);
+	    
+
+
+	    key = diffie_hellman(u64::from_be_bytes(theirdhp), b);
+
+	}
+	println!("client key is {key}");
+	
+	let cipher: Des = Des::new(&GenericArray::from(key.to_be_bytes()));
+
+	loop {
+	    let mut stream = TcpStream::connect(&bind)?;
+
+	    if !send_message(&mut stream, &cipher)? {
+		break;
+	    }
+	}
+
+	Ok(())
     }
 
-    fn recv_message(stream: &mut TcpStream) -> std::io::Result<()> {
+    fn recv_message(stream: &mut TcpStream, cipher: &Des) -> std::io::Result<()> {
         let chunks = recv_chunks(stream)?;
 
-        println!("< {}", chunks_to_text(chunks));
-        Ok(())
+        println!("< (encrypted) {:?}", chunks.clone());
+
+	let decrypted_chunks = decrypt_chunks(chunks, cipher);
+	println!("< (decrypted) {}", chunks_to_text(decrypted_chunks));
+
+	Ok(())
     }
 
-    fn send_message(stream: &mut TcpStream) -> std::io::Result<bool> {
+    fn send_message(stream: &mut TcpStream, cipher: &Des) -> std::io::Result<bool> {
         print!("> ");
         io::stdout().flush().ok().expect("Could not flush stdout");
         let mut message = String::new();
@@ -229,28 +314,18 @@ pub mod networking {
             return Ok(false);
         }
 
-        send_chunks(stream, text_to_chunks(message))?;
+	let chunks = text_to_chunks(message);
+
+	let encrypted_chunks = encrypt_chunks(chunks, cipher);
+
+        send_chunks(stream, encrypted_chunks)?;
         Ok(true)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::diffie_hellman::*;
     use crate::text_manipulation::*;
-    #[test]
-    fn diffie_hellman_test() {
-        let secret_a = gen_secret();
-        let secret_b = gen_secret();
-
-        let part_key_a = diffie_hellman_partial(secret_a);
-        let part_key_b = diffie_hellman_partial(secret_b);
-
-        let key_a = diffie_hellman(part_key_b, secret_a);
-        let key_b = diffie_hellman(part_key_a, secret_b);
-
-        assert_eq!(key_a, key_b);
-    }
 
     #[test]
     fn chunk_text_test() {
