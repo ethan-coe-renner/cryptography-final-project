@@ -40,7 +40,7 @@ pub mod diffie_hellman {
 pub mod crypto {
     use crypto_common::Block;
     use des::cipher::{
-        generic_array::GenericArray, BlockCipher, BlockDecrypt, BlockEncrypt, KeyInit,
+        generic_array::GenericArray, BlockDecrypt, BlockEncrypt
     };
     use des::Des;
 
@@ -182,7 +182,7 @@ pub mod networking {
     use des::Des;
 
     use des::cipher::{
-        generic_array::GenericArray, BlockCipher, BlockDecrypt, BlockEncrypt, KeyInit,
+        generic_array::GenericArray, KeyInit,
     };
 
     /// Send chunks to the given TCPStream.
@@ -217,7 +217,7 @@ pub mod networking {
         let bind = "0.0.0.0:1812";
 
         let listener = TcpListener::bind(bind)?;
-	let mut key: u64;
+	let key: u64;
 
 	// do the diffie hellman exchange
 	{
