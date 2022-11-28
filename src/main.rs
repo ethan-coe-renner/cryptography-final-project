@@ -1,4 +1,4 @@
-use std::{io::prelude::*, io};
+use std::{io, io::prelude::*};
 
 use final_project::networking::*;
 
@@ -12,8 +12,8 @@ fn main() -> std::io::Result<()> {
     if input == "S\n" {
         host()?;
     } else if input == "C\n" {
-	print!("Enter an address to connect to: ");
-	io::stdout().flush().ok().expect("Could not flush stdout");
+        print!("Enter an address to connect to: ");
+        io::stdout().flush().ok().expect("Could not flush stdout");
 
         let mut bind = String::new();
 

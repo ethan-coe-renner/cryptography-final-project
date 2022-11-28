@@ -22,6 +22,67 @@ pub mod diffie_hellman {
     }
 }
 
+pub mod crypto {
+    use crypto_common::Block;
+    use des::cipher::{
+        generic_array::GenericArray, BlockCipher, BlockDecrypt, BlockEncrypt, KeyInit,
+    };
+    use des::Des;
+
+    use crate::text_manipulation::*;
+
+    fn chunks_to_blocks(chunks: Chunks) -> Vec<Block<Des>> {
+        let mut blocks = Vec::with_capacity(chunks.len());
+
+        for chunk in chunks {
+            blocks.push(GenericArray::from(chunk.to_be_bytes()))
+        }
+        blocks
+    }
+
+    fn blocks_to_chunks(blocks: Vec<Block<Des>>) -> Chunks {
+	let mut chunks = Vec::with_capacity(blocks.len());
+
+	for block in blocks {
+	    chunks.push(u64::from_be_bytes(block.into()))
+	}
+	chunks
+    }
+
+    /// Encrypt a block in place
+    fn encrypt_block(plaintext: &mut Block<Des>, cipher: &Des) {
+        cipher.encrypt_block(plaintext);
+    }
+    
+    /// Decrypt a block in place
+    fn decrypt_block(block: &mut Block<Des>, cipher: &Des) {
+	cipher.decrypt_block(block);
+    }
+
+    #[test]
+    fn test_encrypt_and_decrypt() {
+	let chunk: u64 = 12345;
+
+	let key = GenericArray::from([2u8;8]);
+
+	let mut block = GenericArray::from(chunk.to_be_bytes());
+
+	let cipher: Des = Des::new(&key);
+
+	encrypt_block(&mut block,&cipher);
+
+	let encrypted_chunk = u64::from_be_bytes(block.into());
+
+	assert_ne!(encrypted_chunk, chunk);
+
+	decrypt_block(&mut block, &cipher);
+
+	let decrypted_chunk = u64::from_be_bytes(block.into());
+
+	assert_eq!(chunk, decrypted_chunk)
+    }
+}
+
 pub mod text_manipulation {
     /// A type to represent a set of chunks
     ///
@@ -78,21 +139,20 @@ pub mod text_manipulation {
 
 pub mod networking {
     use crate::text_manipulation::*;
-    use std::{io::prelude::*,io};
     use std::net::{TcpListener, TcpStream};
+    use std::{io, io::prelude::*};
 
     /// Send chunks to the given TCPStream.
     fn send_chunks(stream: &mut TcpStream, chunks: Chunks) -> std::io::Result<()> {
-
-	// used to send to python because python sucks
-	// let header = chunks.len().to_be_bytes();
-	// println!("{:?}", &header[7..]);
-	// stream.write(&header[7..])?;
-	for chunk in chunks {
-	    let chunk_bytes = chunk.to_be_bytes();
-	    stream.write_all(&chunk_bytes)?;
-	}
-	Ok(())
+        // used to send to python because python sucks
+        // let header = chunks.len().to_be_bytes();
+        // println!("{:?}", &header[7..]);
+        // stream.write(&header[7..])?;
+        for chunk in chunks {
+            let chunk_bytes = chunk.to_be_bytes();
+            stream.write_all(&chunk_bytes)?;
+        }
+        Ok(())
     }
 
     /// Recieve chunks from a given TCPStream
@@ -100,13 +160,11 @@ pub mod networking {
         let mut chunk_buffer: [u8; 8] = [0; 8];
         let mut chunks = Vec::new();
 
-
-
         loop {
-	    if stream.read(&mut chunk_buffer)? == 0 {
+            if stream.read(&mut chunk_buffer)? == 0 {
                 break;
-	    }
-	    chunks.push(u64::from_be_bytes(chunk_buffer));
+            }
+            chunks.push(u64::from_be_bytes(chunk_buffer));
         }
 
         Ok(chunks)
@@ -117,38 +175,36 @@ pub mod networking {
 
         let listener = TcpListener::bind(bind)?;
 
-	let mut first = true;
+        let mut first = true;
         for stream in listener.incoming() {
-	    let mut stream_handle = stream?;
-	    if first {
-		send_message(&mut stream_handle)?;
-		first = false
-	    }
-	    else {
-		recv_message(&mut stream_handle)?;
-		first = true;
-	    }
+            let mut stream_handle = stream?;
+            if first {
+                send_message(&mut stream_handle)?;
+                first = false
+            } else {
+                recv_message(&mut stream_handle)?;
+                first = true;
+            }
         }
         Ok(())
     }
 
     pub fn client(bind: String) -> std::io::Result<()> {
         // let mut stream = TcpStream::connect(bind)?;
-	let mut first = true;
+        let mut first = true;
         loop {
-	    let mut stream = TcpStream::connect(&bind)?;
-	    
-	    if first {
-		recv_message(&mut stream)?;
-		first = false;
-	    }
-	    else {
-		if !send_message(&mut stream)? {
+            let mut stream = TcpStream::connect(&bind)?;
+
+            if first {
+                recv_message(&mut stream)?;
+                first = false;
+            } else {
+                if !send_message(&mut stream)? {
                     break;
-		}
-		first = true;
-	    }
-	    drop(stream);
+                }
+                first = true;
+            }
+            drop(stream);
         }
 
         Ok(())
@@ -162,21 +218,20 @@ pub mod networking {
     }
 
     fn send_message(stream: &mut TcpStream) -> std::io::Result<bool> {
-	print!("> ");
-	io::stdout().flush().ok().expect("Could not flush stdout");
+        print!("> ");
+        io::stdout().flush().ok().expect("Could not flush stdout");
         let mut message = String::new();
         io::stdin()
             .read_line(&mut message)
             .expect("Failed to read input");
 
         if message == "quit" {
-	    return Ok(false);
+            return Ok(false);
         }
 
         send_chunks(stream, text_to_chunks(message))?;
         Ok(true)
     }
-
 }
 
 #[cfg(test)]

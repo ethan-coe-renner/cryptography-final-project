@@ -4,5 +4,7 @@ name = "final_project"
 version = "0.1.0"
 
 [dependencies]
+crypto-common = "0.1.6"
+des = "0.8.1"
 mod_exp = "1.0.1"
 rand = "*"
