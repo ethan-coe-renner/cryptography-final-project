@@ -221,7 +221,9 @@ pub mod networking {
 
 	// do the diffie hellman exchange
 	{
+	    println!("Waiting for client...");
 	    let mut stream = listener.incoming().next().unwrap()?;
+	    println!("Connected to client, performing Diffie-Hellman key exchange...");
 
 	    let a = gen_secret();
 
@@ -244,7 +246,7 @@ pub mod networking {
 	    key = diffie_hellman(u64::from_be_bytes(theirdhp), a);
 	}
 
-	println!("key of host is {key}");
+	println!("Completed key exchange, symmetric key is {key}");
 	let cipher: Des = Des::new(&GenericArray::from(key.to_be_bytes()));
 
         for stream in listener.incoming() {
