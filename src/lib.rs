@@ -300,7 +300,7 @@ pub mod networking {
 
 	let decrypted_chunks = decrypt_chunks(chunks, cipher);
         println!("< (decrypted chunks) {:?}", decrypted_chunks.clone());
-	println!("< (decrypted) {}", chunks_to_text(decrypted_chunks));
+	println!("< (plaintext) {}", chunks_to_text(decrypted_chunks));
 
 	Ok(())
     }
