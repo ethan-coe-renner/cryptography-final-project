@@ -296,10 +296,10 @@ pub mod networking {
     fn recv_message(stream: &mut TcpStream, cipher: &Des) -> std::io::Result<()> {
         let chunks = recv_chunks(stream)?;
 
-        println!("< (encrypted chunks) {:?}", chunks.clone());
+        println!("< (encrypted blocks) {:?}", chunks.clone());
 
 	let decrypted_chunks = decrypt_chunks(chunks, cipher);
-        println!("< (decrypted chunks) {:?}", decrypted_chunks.clone());
+        println!("< (decrypted blocks) {:?}", decrypted_chunks.clone());
 	println!("< (plaintext) {}", chunks_to_text(decrypted_chunks));
 
 	Ok(())
