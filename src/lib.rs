@@ -246,7 +246,7 @@ pub mod networking {
 	    key = diffie_hellman(u64::from_be_bytes(theirdhp), a);
 	}
 
-	println!("Completed key exchange, symmetric key is {key}");
+	println!("Completed key exchange, symmetric key is {key}u64");
 	let cipher: Des = Des::new(&GenericArray::from(key.to_be_bytes()));
 
         for stream in listener.incoming() {
@@ -296,9 +296,10 @@ pub mod networking {
     fn recv_message(stream: &mut TcpStream, cipher: &Des) -> std::io::Result<()> {
         let chunks = recv_chunks(stream)?;
 
-        println!("< (encrypted) {:?}", chunks.clone());
+        println!("< (encrypted chunks) {:?}", chunks.clone());
 
 	let decrypted_chunks = decrypt_chunks(chunks, cipher);
+        println!("< (decrypted chunks) {:?}", decrypted_chunks.clone());
 	println!("< (decrypted) {}", chunks_to_text(decrypted_chunks));
 
 	Ok(())
