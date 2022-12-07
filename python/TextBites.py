@@ -4,6 +4,7 @@ def text2byte(text):
         byte_array.append(ord(c))
     return byte_array
 
+
 def chunkGen(byte_array):
     chunk = []
     byte_array.reverse()
@@ -17,18 +18,27 @@ def chunkGen(byte_array):
     chunk.append(byte_array)
     return chunk
 
+
 def byte2text(byte_array):
     text = ''
     for byte in byte_array:
         text += (chr(byte))
     return text
-def text2chunk(input):
-    u8array = []
-    for i in range(0,len(input)):
-        for j in range(0, len(y[i])):
-            u8array.append(input[i][j])
 
+
+def text2chunk(input):
+    n = len(input);
+    u8array = []
+    while len(input)%8 != 0:
+        input += '_'
+
+    for i in range(0, n/8):
+        b = bytearray()
+        s = input[i*8:i*8+8]
+        b.extend(s.encode('utf-8'))
+        u8array.append(b)
     return u8array
+
 
 def bytes2chunk(input):
     u64chunkArray = []
@@ -45,7 +55,8 @@ def bytes2chunk(input):
         u64chunkArray.append(buffer)
     return u64chunkArray
 
-def chunk2bytes(u64chunkArray):
+
+def chunks2text(u64chunkArray):
     word = []
     str = ''
     for chunk in u64chunkArray:
@@ -55,9 +66,11 @@ def chunk2bytes(u64chunkArray):
     for byte in word:
         char = chr(byte)
         str = str + char
-
-
     return str
+
+
+def text2chunk(string):
+    return bytes2chunk(text2byte(string))
 
 
 if __name__ == "__main__":
@@ -65,7 +78,7 @@ if __name__ == "__main__":
     x = text2byte("hello world")
     print(x[0])
     chunk = bytes2chunk(x)
-    print(chunk2bytes(chunk))
+    print(chunks2text(chunk))
     #y = chunkGen(x)
     #print("chunkList: ", y)
     #print(text2chunk(y))

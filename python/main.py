@@ -1,13 +1,15 @@
 import random
 import socket
-from math import floor
+from TextBites import text2chunk, chunks2text
+from binascii import unhexlify
 
-import TextBites
 # Fixed Length Header
 FORMAT = 'utf-8'
-HEADER_SIZE = 4
+HEADER_SIZE = 8
 PRIME = 98561123
 ROOT = 452
+PORT = 1812
+IP_ADDRESS = "138.9.175.1"
 
 
 def main():
@@ -25,50 +27,70 @@ def main():
 def host_tcp():
     print("You are a host")
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.bind((socket.gethostname(), 1234))
+    # print(type(socket.gethostname()))
+    # print(socket.gethostname())
+    # s.bind((socket.gethostname(), PORT))
+    s.bind(("10.15.135.51", PORT))
     s.listen()
     clientsocket, address = s.accept()
     print(f"Connection from {address} has been established!")
 
     # Client Socket
-    send_msg(clientsocket, "Hello Client!")
+    # send_msg(clientsocket, "Hello Client!")
     receive_msg(clientsocket)
 
 
 def client_tcp():
+    print("You are a client")
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.connect((socket.gethostname(), 1234))
+    # s.connect((socket.gethostname(), PORT))
+    s.connect(("138.9.175.10", PORT))
 
     # first receive msg catches empty message from server
-    receive_msg(s)
+    # receive_msg(s)
     send_msg(s, "Hello Host!")
 
 
-
 def send_msg(s, msg):
-    fullmsg = format(len(msg), '0' + str(HEADER_SIZE) + 'x') + msg
-    # print(f"Now sending message: {fullmsg}")
-    s.send(bytes(fullmsg, FORMAT))
+    chunks = text2chunk(msg)
+    # header = format(len(msg), '0' + str(HEADER_SIZE) + 'x')
+    # print(f">Now sending message: {fullmsg}")
+    # byteheader = bytes(header,FORMAT)
+    # print(f"Sending Header: {byteheader}")
+    # s.send(byteheader)
+
+    for chunk in chunks:
+        width = 64
+        fmt = '%%0%dx' % (width // 4)
+        bytemsg = unhexlify(fmt % chunk)
+        print(f"Sending Chunk: {bytemsg}")
+        s.send(bytemsg)
 
 
 def receive_msg(s):
-    # print("Now trying to receive a message:")
+    print(">Now trying to receive a message:")
     fullmsg = []
     msg = s.recv(HEADER_SIZE)
-    # print(f"New message length: {msg}")
+    # print(f"> New message length: {msg}")
     if not msg:
         return fullmsg
 
-    msglen = int(msg, base=16)
-    # print(f"Message Length: {msglen}")
-    #for i in range(msglen):
-    #    msg = s.recv(8)
-    #    fullmsg.append(msg.decode(FORMAT))
+    chunks = []
+
+    print(msg)
+    print(type(msg))
+    msglen = int.from_bytes(msg, "little")
+    print(f"> Message Length: {msglen}")
+    for i in range(msglen):
+        msg = s.recv(8)
+        chunks.append(msg)
+        fullmsg.append(msg.decode(FORMAT))
     msg = s.recv(msglen)
     fullmsg.append(msg.decode(FORMAT))
 
     print(fullmsg)
-    return fullmsg
+    print(chunks)
+    return chunks
 
 
 def diffie_hellman(prime, root):
